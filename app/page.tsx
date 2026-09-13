@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, BookOpen, Copy, Globe2, MapPinned, Swords } from "lucide-react";
-import { countryShapeUrl } from "@/lib/iso2";
+import { WorldMap } from "@/components/WorldMap";
 import type { PublicGame, Settings } from "@/lib/game";
 import { regions } from "@/lib/game";
 
@@ -177,7 +177,6 @@ export default function Home() {
   if (game?.status === "playing" && game.question) {
     const mine = game.players[game.me];
     const q = game.question;
-    const mapUrl = countryShapeUrl(q.isoA3);
     return (
       <main className="shell">
         {header}
@@ -196,11 +195,7 @@ export default function Home() {
               </div>
             ))}
           </div>
-          {q.kind === "map" && mapUrl && (
-            <div className="map-shape">
-              <img src={mapUrl} alt="Valstybės kontūras" />
-            </div>
-          )}
+          {q.kind === "map" && q.isoA3 && <WorldMap isoA3={q.isoA3} />}
           {q.kind === "capital" && <h2>{q.country}</h2>}
           {game.feedback ? (
             <>
