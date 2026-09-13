@@ -30,7 +30,16 @@ export async function POST(request:Request){
  if(b.action==='start'){if(g.players[0].token!==token)throw Error('Žaidimą pradeda kambario kūrėjas.');if(g.status!=='lobby'||g.players.length!==2)throw Error('Palauk antro žaidėjo.');g.status='playing';g.startedAt=Date.now();return;}
  if(b.action==='answer'){if(g.status!=='playing'||q?.id!==b.questionId)throw Error('Klausimas jau pasikeitė.');if(p.answers[q.id])return;const text=typeof b.answer==='string'?b.answer.trim().slice(0,160):'';const correct=isCorrect(q,text);const points=correct?100+(g.solo?0:Math.max(0,Math.round(50*(1-(Date.now()-g.startedAt)/60000)))):0;p.answers[q.id]={text,correct,points};p.score+=points;return;}
  if(b.action==='next'){if(g.status!=='playing'||q?.id!==b.questionId)throw Error('Klausimas jau pasikeitė.');if(!g.players.every(p=>p.answers[q.id]))throw Error('Palauk, kol atsakys abu žaidėjai.');p.ready=true;if(g.players.every(p=>p.ready)){if(g.index===g.questions.length-1)g.status='finished';else{g.index++;g.startedAt=Date.now();for(const p of g.players)p.ready=false;}}return;}
- if(b.action==='retry'){if(g.status!=='finished')throw Error('Pirmiausia baik žaidimą.');throw Error('Klaidų kartojimą pradėk naujoje treniruotėje.');}
+ if(b.action==='retry'){
+  if(!g.solo)throw Error('Klaidų kartojimas yra treniruotėje.');
+  if(g.status!=='finished')throw Error('Pirmiausia baik žaidimą.');
+  const missed=g.questions.filter(q=>!g.players[0].answers[q.id]?.correct).map(q=>({countryId:q.countryId,kind:q.kind as 'map'|'capital'}));
+  if(!missed.length)throw Error('Klaidų nėra — visos teisingos.');
+  g.questions=makeQuestions({...g.settings,rounds:0},missed);
+  g.index=0;g.status='playing';g.startedAt=Date.now();
+  for(const p of g.players){p.answers={};p.ready=false;p.score=0;}
+  return;
+ }
  throw Error('Nežinomas veiksmas.');
  });
  }catch(e){console.error('game POST',e);return fail(e instanceof Error&&!/D1|SQL|binding/i.test(e.message)?e.message:'Nepavyko išsaugoti. Tavo atsakymas liko laukelyje — bandyk dar kartą.',400);}
