@@ -1,6 +1,7 @@
 import {db} from '@/lib/db';
 import {Game,Player,Question,expireAnswers,isCorrect,makeQuestions,publicGame,settingsFrom} from '@/lib/game';
 export const dynamic='force-dynamic';
+export const runtime='nodejs';
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const tokenFor=(r:Request)=>r.headers.get('X-Player-Token')||'';
 const codeFor=(s:unknown)=>typeof s==='string'?s.toUpperCase().trim():'';
