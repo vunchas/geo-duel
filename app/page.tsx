@@ -53,6 +53,13 @@ const modeOptions: { value: Settings["mode"]; label: string }[] = [
   { value: "capital", label: "Tik sostinės" },
 ];
 
+const duelLengths: { value: number; label: string; hint: string }[] = [
+  { value: 20, label: "Greita dvikova", hint: "20 klausimų" },
+  { value: 40, label: "Apšilimas", hint: "40 klausimų" },
+  { value: 60, label: "Ruošiuosi kontroliniam", hint: "60 klausimų" },
+  { value: 80, label: "Išmokti viską", hint: "80 klausimų" },
+];
+
 const countryByName = new Map(countries.map((c) => [c.country, c]));
 const countryByIso = new Map(countries.map((c) => [c.isoA3, c]));
 const capitalCount = countries.filter((c) => c.capitalRequired).length;
@@ -62,6 +69,7 @@ export default function Home() {
   const [name, setName] = useState("");
   const [mode, setMode] = useState<Settings["mode"]>("mixed");
   const [joinCode, setJoinCode] = useState("");
+  const [duelRounds, setDuelRounds] = useState(20);
   const [showDuel, setShowDuel] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -196,7 +204,7 @@ export default function Home() {
       action: "create",
       name: trimmed,
       solo: kind !== "duel",
-      settings: { mode, input: kind === "learn" ? "mix" : "write", region: regions[0], rounds: 20 },
+      settings: { mode, input: kind === "learn" ? "mix" : "write", region: regions[0], rounds: kind === "duel" ? duelRounds : 20 },
     });
   }
 
@@ -229,6 +237,10 @@ export default function Home() {
           <div className="row">
             <button className="btn ghost" onClick={() => copyText(game.code)}><Copy size={18} />{copied ? "Nukopijuota" : "Kodas"}</button>
             <button className="btn ghost" onClick={() => copyText(link)}>Nuoroda</button>
+          </div>
+          <div className="row wrap">
+            <span className="pill">{game.total} klausimų</span>
+            <span className="pill">{modeOptions.find((o) => o.value === game.settings.mode)?.label}</span>
           </div>
           <ul className="players">
             {game.players.map((p) => <li key={p.name}><Check size={16} />{p.name}</li>)}
@@ -469,6 +481,20 @@ export default function Home() {
         </button>
         {showDuel && (
           <div className="duel-box">
+            <p className="label">Dvikovos ilgis</p>
+            <div className="lengths">
+              {duelLengths.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  className={`length${duelRounds === o.value ? " is-active" : ""}`}
+                  onClick={() => setDuelRounds(o.value)}
+                >
+                  <strong>{o.label}</strong>
+                  <small>{o.hint}</small>
+                </button>
+              ))}
+            </div>
             <button className="btn primary" disabled={busy} onClick={() => start("duel")}>Sukurti kambarį</button>
             <div className="row">
               <input className="field" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} placeholder="Kodas" maxLength={6} />

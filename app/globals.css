@@ -299,6 +299,24 @@ select.field { appearance: none; background: var(--surface-2); }
 .mode-text small { color: var(--muted); font-size: 13px; }
 .mode > svg:last-child { color: var(--muted); transition: transform 0.15s ease; }
 .duel-box { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: var(--surface-2); }
+.duel-box .label { margin-bottom: 0; }
+.lengths { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.length {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: transparent;
+  text-align: left;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.length strong { font-size: 15px; }
+.length small { color: var(--muted); font-size: 13px; }
+.length.is-active { border-color: var(--accent); background: rgba(168, 177, 255, 0.12); }
+.length.is-active small { color: var(--accent); }
 .duel-box .row .field { flex: 1; letter-spacing: 0.15em; text-transform: uppercase; }
 .duel-box .row .btn { width: auto; padding: 0 18px; }
 
