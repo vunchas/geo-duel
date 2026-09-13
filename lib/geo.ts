@@ -1,5 +1,27 @@
 export type CountryLocation = { numeric: number; lat: number; lng: number };
 
+const ISO2: Record<string, string> = {
+  CAN: "CA", USA: "US", MEX: "MX", PAN: "PA", VEN: "VE", COL: "CO", BRA: "BR",
+  ECU: "EC", PER: "PE", CHL: "CL", ARG: "AR", EGY: "EG", LBY: "LY", TUN: "TN",
+  DZA: "DZ", MAR: "MA", NGA: "NG", ETH: "ET", COD: "CD", ZAF: "ZA", MDG: "MG",
+  AUS: "AU", NZL: "NZ", IDN: "ID", MYS: "MY", SGP: "SG", THA: "TH", JPN: "JP",
+  KOR: "KR", CHN: "CN", MNG: "MN", BGD: "BD", IND: "IN", PAK: "PK", KAZ: "KZ",
+  TKM: "TM", IRN: "IR", SAU: "SA", IRQ: "IQ", TUR: "TR", ISR: "IL", CYP: "CY",
+  RUS: "RU", UKR: "UA", BLR: "BY", MDA: "MD", ISL: "IS", NOR: "NO", SWE: "SE",
+  FIN: "FI", DNK: "DK", EST: "EE", LVA: "LV", POL: "PL", DEU: "DE", CZE: "CZ",
+  SVK: "SK", HUN: "HU", AUT: "AT", LIE: "LI", CHE: "CH", ROU: "RO", BGR: "BG",
+  SVN: "SI", HRV: "HR", BIH: "BA", MNE: "ME", SRB: "RS", XKX: "XK", GRC: "GR",
+  MLT: "MT", ITA: "IT", VAT: "VA", SMR: "SM", ESP: "ES", PRT: "PT", AND: "AD",
+  MCO: "MC", FRA: "FR", BEL: "BE", NLD: "NL", LUX: "LU", GBR: "GB", IRL: "IE",
+  MKD: "MK", ALB: "AL",
+};
+
+/** Flag image URL; emoji flags don't render on Windows so we use SVGs. */
+export function flagUrl(isoA3?: string) {
+  const iso2 = isoA3 ? ISO2[isoA3] : undefined;
+  return iso2 ? `https://flagcdn.com/${iso2.toLowerCase()}.svg` : "";
+}
+
 export const countryLocation: Record<string, CountryLocation> = {
   CAN: { numeric: 124, lat: 56.1, lng: -106.3 },
   USA: { numeric: 840, lat: 39.8, lng: -98.6 },

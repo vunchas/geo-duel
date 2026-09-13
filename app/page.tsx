@@ -1,12 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, BookOpen, Copy, Globe2, MapPinned, RotateCcw, Swords } from "lucide-react";
-import { WorldMap } from "@/components/WorldMap";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, BookOpen, Check, Copy, Flame, PenLine, Swords, Trophy, X, Zap } from "lucide-react";
+import { WorldMap, neighborIso3 } from "@/components/WorldMap";
 import type { PublicGame, Settings } from "@/lib/game";
-import { regions } from "@/lib/game";
+import { countries, regions } from "@/lib/game";
+import { flagUrl } from "@/lib/geo";
+import { emptyStats, loadStats, masteredCount, recordAnswer, saveStats, touchDay, type Stats } from "@/lib/stats";
+
+function Flag({ isoA3, size = 28 }: { isoA3?: string; size?: number }) {
+  const src = flagUrl(isoA3);
+  if (!src) return null;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className="flag" src={src} alt="" width={size * 4 / 3} height={size} loading="lazy" />;
+}
 
 const TOKEN_KEY = "atlas-player-token";
+const NAME_KEY = "atlas-player-name";
 
 function playerToken() {
   let token = localStorage.getItem(TOKEN_KEY);
@@ -21,10 +31,7 @@ async function requestGame(body?: Record<string, unknown>, code?: string) {
   const res = await fetch(body ? "/api/game" : `/api/game?code=${encodeURIComponent(code || "")}`, {
     method: body ? "POST" : "GET",
     cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Player-Token": playerToken(),
-    },
+    headers: { "Content-Type": "application/json", "X-Player-Token": playerToken() },
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = (await res.json()) as PublicGame & { error?: string };
@@ -32,166 +39,207 @@ async function requestGame(body?: Record<string, unknown>, code?: string) {
   return data;
 }
 
+/** Learn mode: multiple choice on the first pass, typed answers once you retry misses. */
 function usesChoice(game: PublicGame) {
-  const q = game.question;
-  if (!q) return false;
-  if (game.solo && q.kind === "capital") return true;
+  if (!game.question) return false;
   if (game.settings.input === "choice") return true;
-  if (game.settings.input === "mix") return game.index % 2 === 0;
+  if (game.settings.input === "mix") return game.round === 0;
   return false;
 }
 
 const modeOptions: { value: Settings["mode"]; label: string }[] = [
-  { value: "map", label: "Valstybės žemėlapyje" },
-  { value: "capital", label: "Neišbrauktos sostinės" },
-  { value: "mixed", label: "Viskas kartu" },
+  { value: "mixed", label: "Valstybės ir sostinės" },
+  { value: "map", label: "Tik valstybės žemėlapyje" },
+  { value: "capital", label: "Tik sostinės" },
 ];
 
-const studyOptions: { value: Settings["input"]; label: string }[] = [
-  { value: "mix", label: "Maišyti: 4 pasirinkimai ir rašymas" },
-  { value: "choice", label: "Visada 4 pasirinkimai" },
-  { value: "write", label: "Rašyti, sostinės — 4 pasirinkimai" },
-];
+const countryByName = new Map(countries.map((c) => [c.country, c]));
+const countryByIso = new Map(countries.map((c) => [c.isoA3, c]));
+const capitalCount = countries.filter((c) => c.capitalRequired).length;
+const totalItems = countries.length + capitalCount;
 
 export default function Home() {
-  const [tab, setTab] = useState<"duel" | "solo">("duel");
   const [name, setName] = useState("");
-  const [mode, setMode] = useState<Settings["mode"]>("map");
-  const [study, setStudy] = useState<Settings["input"]>("mix");
+  const [mode, setMode] = useState<Settings["mode"]>("mixed");
   const [joinCode, setJoinCode] = useState("");
+  const [showDuel, setShowDuel] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [game, setGame] = useState<PublicGame | null>(null);
   const [answer, setAnswer] = useState("");
   const [copied, setCopied] = useState(false);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
+  const [stats, setStats] = useState<Stats>(emptyStats);
+  const [streak, setStreak] = useState(0);
+  const [sessionBest, setSessionBest] = useState(0);
+  const [toast, setToast] = useState("");
+  const streakRef = useRef(0);
+  const scoredRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = (params.get("code") || "").toUpperCase();
-    if (code) setJoinCode(code);
+    // Hydration-safe read of persisted state; only runs on the client after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStats(loadStats());
+    setName(localStorage.getItem(NAME_KEY) || "");
+    const code = (new URLSearchParams(window.location.search).get("code") || "").toUpperCase();
+    if (!code) return;
+    // Refreshing mid-session should resume it; otherwise treat the code as an invite.
+    requestGame(undefined, code)
+      .then((existing) => setGame(existing))
+      .catch(() => {
+        setJoinCode(code);
+        setShowDuel(true);
+      });
   }, []);
 
   useEffect(() => {
-    if (!game?.code) return;
+    if (!game?.code || game.solo) return;
     const tick = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(tick);
-  }, [game?.code, game?.status]);
+  }, [game?.code, game?.solo]);
 
   useEffect(() => {
     if (!game?.code || game.status === "finished" || game.solo) return;
-    const poll = async () => {
+    const id = setInterval(async () => {
       try {
-        const next = await requestGame(undefined, game.code);
-        setGame(next);
+        setGame(await requestGame(undefined, game.code));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Ryšys nutrūko.");
       }
-    };
-    const id = setInterval(poll, 1000);
+    }, 1000);
     return () => clearInterval(id);
   }, [game?.code, game?.status, game?.solo]);
 
+  const resetStreak = useCallback(() => {
+    streakRef.current = 0;
+    setStreak(0);
+    scoredRef.current = null;
+  }, []);
+
+  // Streak + XP bookkeeping, once per answered question.
+  const score = useCallback((next: PublicGame) => {
+    const fb = next.feedback;
+    const q = next.question;
+    if (!fb || !q || scoredRef.current === q.id) return;
+    scoredRef.current = q.id;
+    const nextStreak = fb.correct ? streakRef.current + 1 : 0;
+    streakRef.current = nextStreak;
+    setStreak(nextStreak);
+    setSessionBest((b) => Math.max(b, nextStreak));
+    const bonus = fb.correct ? Math.min(nextStreak - 1, 5) * 5 : 0;
+    setStats((s) => {
+      const updated = recordAnswer(s, `${fb.country}|${q.kind}`, fb.correct, nextStreak, fb.correct ? 10 + bonus : 0);
+      saveStats(updated);
+      return updated;
+    });
+    if (fb.correct && nextStreak >= 3) {
+      setToast(nextStreak >= 10 ? `${nextStreak} iš eilės. Nesustok.` : `${nextStreak} iš eilės!`);
+      setTimeout(() => setToast(""), 1400);
+    }
+  }, []);
+
+  const run = useCallback(
+    async (body: Record<string, unknown>) => {
+      setBusy(true);
+      setError("");
+      try {
+        const next = await requestGame(body);
+        setGame(next);
+        setAnswer("");
+        if (body.action === "answer") score(next);
+        if (next.code) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("code", next.code);
+          window.history.replaceState(null, "", url);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Nepavyko.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [score]
+  );
+
+  // Solo: correct answers advance on their own; wrong ones wait so you can read the fact card.
+  const advanceCode = game?.solo && game.status === "playing" && game.feedback?.correct ? game.code : "";
+  const advanceId = advanceCode ? game?.question?.id ?? "" : "";
   useEffect(() => {
-    if (!game?.solo || game.status !== "playing" || !game.feedback || !game.question) return;
-    const wait = game.feedback.correct ? 750 : 1400;
-    const timer = setTimeout(() => {
-      run({ action: "next", code: game.code, questionId: game.question!.id });
-    }, wait);
-    return () => clearTimeout(timer);
-  }, [game?.solo, game?.status, game?.question?.id, game?.feedback?.correct]);
+    if (!advanceId) return;
+    const t = setTimeout(() => run({ action: "next", code: advanceCode, questionId: advanceId }), 900);
+    return () => clearTimeout(t);
+  }, [advanceCode, advanceId, run]);
 
   const remaining = useMemo(() => {
-    if (!game || game.solo || game.status !== "playing") return 60;
+    if (!game || game.solo || game.status !== "playing" || !now) return 60;
     const offset = now - game.serverNow;
     return Math.max(0, Math.ceil((60000 - (now - offset - game.startedAt)) / 1000));
   }, [game, now]);
 
-  async function run(body: Record<string, unknown>) {
-    setBusy(true);
-    setError("");
-    try {
-      const next = await requestGame(body, typeof body.code === "string" ? body.code : game?.code);
-      setGame(next);
-      setAnswer("");
-      if (next.code) {
-        const url = new URL(window.location.href);
-        url.searchParams.set("code", next.code);
-        window.history.replaceState(null, "", url);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Nepavyko.");
-    } finally {
-      setBusy(false);
+  function start(kind: "learn" | "test" | "duel") {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("Įrašyk savo vardą.");
+      return;
     }
-  }
-
-  function startRoom(solo: boolean) {
+    localStorage.setItem(NAME_KEY, trimmed);
+    if (kind !== "duel") {
+      setStats((s) => {
+        const updated = touchDay(s);
+        saveStats(updated);
+        return updated;
+      });
+    }
+    resetStreak();
+    setSessionBest(0);
     return run({
       action: "create",
-      name,
-      solo,
-      settings: { mode, input: solo ? study : "write", region: regions[0], rounds: 20 },
+      name: trimmed,
+      solo: kind !== "duel",
+      settings: { mode, input: kind === "learn" ? "mix" : "write", region: regions[0], rounds: 20 },
     });
   }
 
-  function shareLink() {
-    if (!game) return "";
-    const url = new URL(window.location.href);
-    url.searchParams.set("code", game.code);
-    return url.toString();
+  function leave() {
+    setGame(null);
+    resetStreak();
+    window.history.replaceState(null, "", "/");
   }
 
-  async function copyCode() {
-    if (!game) return;
-    await navigator.clipboard.writeText(game.code);
+  async function copyText(text: string) {
+    await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
 
-  const header = (
-    <header>
-      <a className="brand" href="/">
-        <Globe2 />
-        <span>
-          atlas<span className="brand-light"> / dvikova</span>
-        </span>
-      </a>
-      <span className="header-note">{game ? `Kambarys ${game.code}` : "Pasaulis. Po vieną šalį."}</span>
-    </header>
-  );
-
+  /* ---------- Lobby ---------- */
   if (game?.status === "lobby") {
     const host = game.me === 0;
+    const link = `${window.location.origin}/?code=${game.code}`;
     return (
-      <main className="shell">
-        {header}
-        <section className="panel lobby">
-          <span className="eyebrow">LAUKIAME ANTRO ŽAIDĖJO</span>
-          <h1>Kodas</h1>
+      <main className="study">
+        <div className="study-top">
+          <button className="icon-btn" onClick={leave} aria-label="Išeiti"><X size={20} /></button>
+          <span className="study-count">Kambarys</span>
+          <span />
+        </div>
+        <section className="lobby">
+          <p className="label">Pasidalyk kodu</p>
           <p className="lobby-code">{game.code}</p>
-          <div className="lobby-actions">
-            <button className="secondary" onClick={copyCode}>
-              <Copy size={18} />
-              {copied ? "Nukopijuota" : "Kopijuoti kodą"}
-            </button>
-            <button className="ghost" onClick={() => navigator.clipboard.writeText(shareLink())}>
-              Kopijuoti nuorodą
-            </button>
+          <div className="row">
+            <button className="btn ghost" onClick={() => copyText(game.code)}><Copy size={18} />{copied ? "Nukopijuota" : "Kodas"}</button>
+            <button className="btn ghost" onClick={() => copyText(link)}>Nuoroda</button>
           </div>
           <ul className="players">
-            {game.players.map((player) => (
-              <li key={player.name}>{player.name}</li>
-            ))}
-            {game.players.length < 2 && <li className="muted">Laukiama varžovo…</li>}
+            {game.players.map((p) => <li key={p.name}><Check size={16} />{p.name}</li>)}
+            {game.players.length < 2 && <li className="dim">Laukiama varžovo…</li>}
           </ul>
           {host ? (
-            <button className="primary" disabled={busy || game.players.length < 2} onClick={() => run({ action: "start", code: game.code })}>
-              Pradėti dvikovą
-              <ArrowRight size={19} />
+            <button className="btn primary" disabled={busy || game.players.length < 2} onClick={() => run({ action: "start", code: game.code })}>
+              Pradėti dvikovą <ArrowRight size={18} />
             </button>
           ) : (
-            <p className="muted">Kambario kūrėjas paleis žaidimą, kai būsite abu.</p>
+            <p className="dim">Kambario kūrėjas paleis žaidimą, kai būsite abu.</p>
           )}
           {error && <p className="error">{error}</p>}
         </section>
@@ -199,233 +247,239 @@ export default function Home() {
     );
   }
 
+  /* ---------- Question ---------- */
   if (game?.status === "playing" && game.question) {
-    const mine = game.players[game.me];
     const q = game.question;
+    const fb = game.feedback;
     const choice = usesChoice(game);
-    const picked = game.feedback?.text;
+    const done = game.index + (fb ? 1 : 0);
+    const fact = fb ? countryByName.get(fb.country) : undefined;
+    const neighborNames = fact ? neighborIso3(fact.isoA3).map((iso) => countryByIso.get(iso)?.country).filter(Boolean) : [];
+
     return (
-      <main className="shell">
-        {header}
-        <section className="panel play">
-          <div className="play-top">
-            <span className="eyebrow">
-              {q.kind === "map" ? "KURI TAI VALSTYBĖ?" : "SOSTINĖ"} · {game.index + 1}/{game.total}
-            </span>
-            {!game.solo && <span className="timer">{remaining}s</span>}
+      <main className="study">
+        <div className="study-top">
+          <button className="icon-btn" onClick={leave} aria-label="Išeiti"><X size={20} /></button>
+          <span className="study-count">{game.index + 1} / {game.total}</span>
+          <span className="chip streak" data-hot={streak >= 3}><Flame size={15} />{streak}</span>
+        </div>
+        <div className="bar"><span style={{ width: `${(done / game.total) * 100}%` }} /></div>
+
+        {!game.solo && (
+          <div className="duel-strip">
+            {game.players.map((p) => (
+              <span key={p.name} className="chip">{p.name} · {p.score}{p.answered ? " ✓" : ""}</span>
+            ))}
+            <span className="chip time">{remaining}s</span>
           </div>
-          <div className="progress" aria-hidden="true">
-            <span style={{ width: `${((game.index + (game.feedback ? 1 : 0)) / game.total) * 100}%` }} />
-          </div>
-          {!game.solo && (
-            <div className="scores">
-              {game.players.map((player) => (
-                <div key={player.name}>
-                  <strong>{player.score}</strong>
-                  <span>{player.name}{player.answered ? " · atsakė" : ""}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {q.kind === "map" && q.isoA3 && <WorldMap isoA3={q.isoA3} />}
-          {q.kind === "capital" && <h2>{q.country}</h2>}
-          {choice ? (
-            <div className="choices">
-              {q.options.map((option) => {
-                const isCorrect = game.feedback?.expected === option;
-                const isWrong = Boolean(game.feedback && picked === option && !game.feedback.correct);
-                return (
-                  <button
-                    key={option}
-                    className={`choice${isCorrect ? " is-correct" : ""}${isWrong ? " is-wrong" : ""}`}
-                    disabled={busy || Boolean(game.feedback)}
-                    onClick={() => run({ action: "answer", code: game.code, questionId: q.id, answer: option })}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
-          ) : game.feedback ? null : (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                run({ action: "answer", code: game.code, questionId: q.id, answer });
-              }}
-            >
-              <label>
-                Tavo atsakymas
-                <input value={answer} onChange={(event) => setAnswer(event.target.value)} autoComplete="off" maxLength={160} />
-              </label>
-              <button className="primary" disabled={busy || !answer.trim()}>
-                Atsakyti
-              </button>
-            </form>
-          )}
-          {game.feedback && (
+        )}
+
+        <section className="prompt">
+          {q.kind === "map" ? (
             <>
-              <p className={game.feedback.correct ? "ok" : "bad"}>
-                {game.feedback.correct ? "Teisingai." : `Buvo: ${game.feedback.expected}`}
-              </p>
-              {!game.solo && (
-                <button
-                  className="primary"
-                  disabled={busy || !game.players.every((player) => player.answered)}
-                  onClick={() => run({ action: "next", code: game.code, questionId: q.id })}
-                >
-                  {mine.ready ? "Laukiame kito žaidėjo" : "Toliau"}
-                  <ArrowRight size={19} />
-                </button>
-              )}
+              <p className="label">Kuri valstybė pažymėta?</p>
+              <WorldMap isoA3={q.isoA3} highlightNeighbors={Boolean(fb)} />
+            </>
+          ) : (
+            <>
+              <p className="label">Sostinė</p>
+              <h1 className="prompt-title"><Flag isoA3={countryByName.get(q.country || "")?.isoA3} size={30} /> {q.country}</h1>
             </>
           )}
-          {error && <p className="error">{error}</p>}
         </section>
+
+        {choice ? (
+          <section className="answers">
+            <p className="label">Pasirink atsakymą</p>
+            {q.options.map((option) => {
+              const isCorrect = fb?.expected === option;
+              const isWrong = Boolean(fb && fb.text === option && !fb.correct);
+              return (
+                <button
+                  key={option}
+                  className={`answer${isCorrect && fb ? " is-correct" : ""}${isWrong ? " is-wrong" : ""}`}
+                  disabled={busy || Boolean(fb)}
+                  onClick={() => run({ action: "answer", code: game.code, questionId: q.id, answer: option })}
+                >
+                  {option}
+                  {fb && isCorrect && <Check size={20} />}
+                  {isWrong && <X size={20} />}
+                </button>
+              );
+            })}
+          </section>
+        ) : !fb ? (
+          <form
+            className="answers"
+            onSubmit={(e) => {
+              e.preventDefault();
+              run({ action: "answer", code: game.code, questionId: q.id, answer });
+            }}
+          >
+            <p className="label">Įrašyk atsakymą</p>
+            <input className="field" value={answer} onChange={(e) => setAnswer(e.target.value)} autoFocus autoComplete="off" maxLength={160} placeholder="Atsakymas" />
+            <button className="btn primary" disabled={busy || !answer.trim()}>Atsakyti</button>
+          </form>
+        ) : null}
+
+        {fb && (
+          <section
+            className={`verdict ${fb.correct ? "good" : "bad"}`}
+            ref={(el) => el?.scrollIntoView({ behavior: "smooth", block: "nearest" })}
+          >
+            <p className="verdict-title">{fb.correct ? "Teisingai" : `Teisingas atsakymas: ${fb.expected}`}</p>
+            {(!fb.correct || !game.solo) && fact && (
+              <div className="fact">
+                <div className="fact-head">
+                  <Flag isoA3={fact.isoA3} size={34} />
+                  <div>
+                    <strong>{fact.country}</strong>
+                    <span>{fact.continent}{fact.capitalRequired ? ` · sostinė ${fact.capital}` : ""}</span>
+                  </div>
+                </div>
+                {q.kind === "capital" && <WorldMap isoA3={fact.isoA3} highlightNeighbors />}
+                {neighborNames.length > 0 && (
+                  <p className="neighbors">Kaimynės: {neighborNames.join(", ")}</p>
+                )}
+              </div>
+            )}
+            {(!fb.correct || !game.solo) && (
+              <button
+                className="btn primary"
+                disabled={busy || (!game.solo && !game.players.every((p) => p.answered))}
+                onClick={() => run({ action: "next", code: game.code, questionId: q.id })}
+              >
+                {!game.solo && game.players[game.me].ready ? "Laukiame kito" : "Toliau"} <ArrowRight size={18} />
+              </button>
+            )}
+          </section>
+        )}
+        {toast && <div className="toast"><Flame size={18} />{toast}</div>}
+        {error && <p className="error">{error}</p>}
       </main>
     );
   }
 
+  /* ---------- Results ---------- */
   if (game?.status === "finished") {
-    const missed = game.review.filter((item) => !item.answer?.correct);
+    const missed = game.review.filter((r) => !r.answer?.correct);
+    const right = game.review.length - missed.length;
+    const pct = Math.round((right / Math.max(1, game.review.length)) * 100);
+    const me = game.players[game.me];
+    const winner = !game.solo && [...game.players].sort((a, b) => b.score - a.score)[0];
     return (
-      <main className="shell">
-        {header}
-        <section className="panel play">
-          <span className="eyebrow">REZULTATAI</span>
-          <h1>{missed.length ? "Kartok klaidas." : "Švaru."}</h1>
-          <div className="scores">
-            {game.players.map((player) => (
-              <div key={player.name}>
-                <strong>{player.score}</strong>
-                <span>{player.name}</span>
-              </div>
-            ))}
+      <main className="study">
+        <div className="study-top">
+          <button className="icon-btn" onClick={leave} aria-label="Išeiti"><X size={20} /></button>
+          <span className="study-count">Rezultatai</span>
+          <span />
+        </div>
+        <section className="results">
+          <div className="ring" style={{ ["--pct" as string]: `${pct}%` }}>
+            <strong>{pct}%</strong>
+          </div>
+          <h1 className="results-title">
+            {game.solo
+              ? pct === 100 ? "Idealiai." : pct >= 70 ? "Gerai einasi." : "Kartok ir įsiminsi."
+              : winner && winner.name === me.name ? "Laimėjai!" : "Šįkart ne."}
+          </h1>
+          <div className="pills">
+            <span className="pill good"><Check size={15} />Žinai {right}</span>
+            <span className="pill bad"><PenLine size={15} />Mokaisi {missed.length}</span>
+            <span className="pill"><Flame size={15} />Geriausia serija {sessionBest}</span>
+          </div>
+          {!game.solo && (
+            <div className="scoreboard">
+              {game.players.map((p) => <div key={p.name}><strong>{p.score}</strong><span>{p.name}</span></div>)}
+            </div>
+          )}
+          <div className="actions">
+            {game.solo && missed.length > 0 && (
+              <button className="btn primary" disabled={busy} onClick={() => { resetStreak(); run({ action: "retry", code: game.code }); }}>
+                Kartoti {missed.length} klaidas <ArrowRight size={18} />
+              </button>
+            )}
+            <button className={`btn ${game.solo && missed.length ? "ghost" : "primary"}`} onClick={leave}>Į pradžią</button>
           </div>
           <ul className="review">
-            {game.review.map((item) => (
-              <li key={item.id} className={item.answer?.correct ? "ok" : "bad"}>
-                {item.country}: {item.expected}
-                {item.answer?.text ? ` · tu: ${item.answer.text}` : " · praleista"}
+            {game.review.map((r) => (
+              <li key={r.id} className={r.answer?.correct ? "good" : "bad"}>
+                <Flag isoA3={r.isoA3} size={22} />
+                <span className="review-main">
+                  <strong>{r.kind === "map" ? r.country : `${r.country} → ${r.expected}`}</strong>
+                  {!r.answer?.correct && <small>{r.answer?.text ? `Tu: ${r.answer.text}` : "Praleista"}</small>}
+                </span>
+                {r.answer?.correct ? <Check size={18} /> : <X size={18} />}
               </li>
             ))}
           </ul>
-          <div className="result-actions">
-            {game.solo && missed.length > 0 && (
-              <button className="primary" disabled={busy} onClick={() => run({ action: "retry", code: game.code })}>
-                <RotateCcw size={18} />
-                Kartoti {missed.length} klaidas
-              </button>
-            )}
-            <button className="secondary" onClick={() => { setGame(null); window.history.replaceState(null, "", "/"); }}>
-              Nauja treniruotė
-            </button>
-          </div>
           {error && <p className="error">{error}</p>}
         </section>
       </main>
     );
   }
 
+  /* ---------- Home ---------- */
+  const mastered = masteredCount(stats);
   return (
-    <main className="shell">
-      {header}
-      <section className="intro">
-        <span className="eyebrow">JŪSŲ GEOGRAFIJOS TRENIRUOTĖ</span>
-        <h1>
-          Susitinkam
-          <br />
-          <em>žemėlapyje.</em>
-        </h1>
-        <p>86 valstybės. 68 sostinės. Ir vienas vertas dėmesio varžovas.</p>
-      </section>
-      <div className="home-grid">
-        <section className="panel setup">
-          <div className="tabs">
-            <button className={tab === "duel" ? "active" : ""} onClick={() => setTab("duel")}>
-              <Swords size={18} />
-              Dvikova
-            </button>
-            <button className={tab === "solo" ? "active" : ""} onClick={() => setTab("solo")}>
-              <BookOpen size={18} />
-              Treniruotė
-            </button>
-          </div>
-          <h2>{tab === "duel" ? "Dviese iš skirtingų telefonų" : "Mokykis kaip Quizlet"}</h2>
-          <label>
-            Tavo vardas
-            <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Kaip tave vadinti?" maxLength={20} />
-          </label>
-          <label>
-            Ką mokomės?
-            <select value={mode} onChange={(event) => setMode(event.target.value as Settings["mode"])}>
-              {modeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          {tab === "solo" && (
-            <label>
-              Kaip atsakinėti?
-              <select value={study} onChange={(event) => setStudy(event.target.value as Settings["input"])}>
-                {studyOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {tab === "duel" && (
-            <label>
-              Arba įvesk kambario kodą
-              <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="PVZ. 7K2M9P" maxLength={6} />
-            </label>
-          )}
-          {tab === "duel" && joinCode.trim() ? (
-            <button className="primary" disabled={busy} onClick={() => run({ action: "join", name, code: joinCode })}>
-              Prisijungti
-              <ArrowRight size={19} />
-            </button>
-          ) : (
-            <button className="primary" disabled={busy} onClick={() => startRoom(tab === "solo")}>
-              {tab === "duel" ? "Sukurti kambarį" : "Pradėti treniruotę"}
-              <ArrowRight size={19} />
-            </button>
-          )}
-          {error && <p className="error">{error}</p>}
-          <p className="muted">
-            {tab === "duel"
-              ? "Sukurk kambarį ir pasidalyk kodu."
-              : "Sostines renkies iš 4. Klaidas gali kartoti iš karto."}
-          </p>
-        </section>
-        <section className="map-teaser">
-          <MapPinned size={58} />
-          <span className="eyebrow">PASIRUOŠĘ KELIAUTI?</span>
-          <h2>
-            Nuo Kanados
-            <br />
-            iki Albanijos.
-          </h2>
-          <p>
-            Mokomės tik tai, kas tavo lape.
-            <br />
-            Išbrauktų sostinių neklausime.
-          </p>
-          <div className="stats">
-            <div>
-              <strong>86</strong>
-              <span>valstybės</span>
-            </div>
-            <div>
-              <strong>68</strong>
-              <span>sostinės</span>
-            </div>
-          </div>
-        </section>
+    <main className="home">
+      <div className="home-top">
+        <span className="brand">atlas</span>
+        <div className="row">
+          <span className="chip" title="Dienų iš eilės"><Flame size={15} />{stats.dayStreak}</span>
+          <span className="chip" title="Patirtis"><Zap size={15} />{stats.xp} XP</span>
+        </div>
       </div>
+
+      <section className="hero">
+        <p className="label">Geografijos rinkinys</p>
+        <h1>{countries.length} valstybės.<br />{capitalCount} sostinės.</h1>
+        <div className="hero-progress">
+          <div className="bar"><span style={{ width: `${(mastered / totalItems) * 100}%` }} /></div>
+          <span>{mastered} / {totalItems} išmokta</span>
+        </div>
+        <div className="row wrap">
+          <span className="pill"><Trophy size={15} />Serija {stats.bestStreak}</span>
+          <span className="pill">{stats.sessions} treniruotės</span>
+        </div>
+      </section>
+
+      <section className="setup">
+        <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Tavo vardas" maxLength={20} />
+        <select className="field" value={mode} onChange={(e) => setMode(e.target.value as Settings["mode"])}>
+          {modeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </section>
+
+      <section className="modes">
+        <button className="mode" disabled={busy} onClick={() => start("learn")}>
+          <span className="mode-icon"><BookOpen size={20} /></span>
+          <span className="mode-text"><strong>Mokytis</strong><small>4 pasirinkimai, klaidas kartoji raštu</small></span>
+          <ArrowRight size={18} />
+        </button>
+        <button className="mode" disabled={busy} onClick={() => start("test")}>
+          <span className="mode-icon"><PenLine size={20} /></span>
+          <span className="mode-text"><strong>Testas</strong><small>Viską rašai pats, kaip per kontrolinį</small></span>
+          <ArrowRight size={18} />
+        </button>
+        <button className="mode" disabled={busy} onClick={() => setShowDuel((v) => !v)}>
+          <span className="mode-icon"><Swords size={20} /></span>
+          <span className="mode-text"><strong>Dvikova</strong><small>Dviese iš skirtingų telefonų</small></span>
+          <ArrowRight size={18} style={{ transform: showDuel ? "rotate(90deg)" : undefined }} />
+        </button>
+        {showDuel && (
+          <div className="duel-box">
+            <button className="btn primary" disabled={busy} onClick={() => start("duel")}>Sukurti kambarį</button>
+            <div className="row">
+              <input className="field" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} placeholder="Kodas" maxLength={6} />
+              <button className="btn ghost" disabled={busy || joinCode.trim().length !== 6} onClick={() => { localStorage.setItem(NAME_KEY, name.trim()); run({ action: "join", name, code: joinCode }); }}>
+                Prisijungti
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+      {error && <p className="error">{error}</p>}
     </main>
   );
 }

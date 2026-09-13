@@ -1,5 +1,5 @@
 import {db} from '@/lib/db';
-import {Game,Player,Question,expireAnswers,isCorrect,makeQuestions,publicGame,settingsFrom} from '@/lib/game';
+import {Game,Player,expireAnswers,isCorrect,makeQuestions,publicGame,settingsFrom} from '@/lib/game';
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
@@ -36,7 +36,7 @@ export async function POST(request:Request){
   const missed=g.questions.filter(q=>!g.players[0].answers[q.id]?.correct).map(q=>({countryId:q.countryId,kind:q.kind as 'map'|'capital'}));
   if(!missed.length)throw Error('Klaidų nėra — visos teisingos.');
   g.questions=makeQuestions({...g.settings,rounds:0},missed);
-  g.index=0;g.status='playing';g.startedAt=Date.now();
+  g.index=0;g.status='playing';g.startedAt=Date.now();g.round=(g.round||0)+1;
   for(const p of g.players){p.answers={};p.ready=false;p.score=0;}
   return;
  }
