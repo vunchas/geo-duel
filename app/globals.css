@@ -245,10 +245,14 @@ select.field { appearance: none; background: var(--surface-2); }
 .ring strong { width: 104px; height: 104px; border-radius: 50%; background: var(--bg); display: grid; place-items: center; font-size: 28px; }
 .results-title { margin: 0; text-align: center; font-size: 26px; }
 .pills { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-.scoreboard { display: flex; gap: 12px; }
-.scoreboard div { flex: 1; padding: 14px; border-radius: 14px; background: var(--surface); display: flex; flex-direction: column; align-items: center; }
-.scoreboard strong { font-size: 28px; }
-.scoreboard span { color: var(--muted); font-size: 14px; }
+.scoreboard { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.scoreboard li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); }
+.scoreboard li.is-me { background: var(--surface); box-shadow: inset 0 0 0 2px var(--accent); }
+.scoreboard li:first-child .place { background: var(--gold); color: #2b2200; }
+.scoreboard .place { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--line); font-weight: 800; font-size: 14px; }
+.scoreboard .who { flex: 1; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scoreboard strong { font-size: 22px; }
+.players li small { font-size: 13px; }
 .actions { display: flex; flex-direction: column; gap: 10px; }
 .review { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .review li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border-left: 4px solid var(--good); }

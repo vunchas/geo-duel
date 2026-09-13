@@ -242,16 +242,17 @@ export default function Home() {
             <span className="pill">{game.total} klausimų</span>
             <span className="pill">{modeOptions.find((o) => o.value === game.settings.mode)?.label}</span>
           </div>
+          <p className="label">Žaidėjai · {game.players.length} / 8</p>
           <ul className="players">
-            {game.players.map((p) => <li key={p.name}><Check size={16} />{p.name}</li>)}
-            {game.players.length < 2 && <li className="dim">Laukiama varžovo…</li>}
+            {game.players.map((p, i) => <li key={`${i}-${p.name}`}><Check size={16} />{p.name}{i === 0 ? <small className="dim"> · kūrėjas</small> : null}</li>)}
+            {game.players.length < 2 && <li className="dim">Laukiama varžovų…</li>}
           </ul>
           {host ? (
             <button className="btn primary" disabled={busy || game.players.length < 2} onClick={() => run({ action: "start", code: game.code })}>
-              Pradėti dvikovą <ArrowRight size={18} />
+              Pradėti dvikovą{game.players.length > 1 ? ` (${game.players.length})` : ""} <ArrowRight size={18} />
             </button>
           ) : (
-            <p className="dim">Kambario kūrėjas paleis žaidimą, kai būsite abu.</p>
+            <p className="dim">Kambario kūrėjas paleis žaidimą, kai visi susirinks.</p>
           )}
           {error && <p className="error">{error}</p>}
         </section>
@@ -279,8 +280,8 @@ export default function Home() {
 
         {!game.solo && (
           <div className="duel-strip">
-            {game.players.map((p) => (
-              <span key={p.name} className="chip">{p.name} · {p.score}{p.answered ? " ✓" : ""}</span>
+            {game.players.map((p, i) => (
+              <span key={`${i}-${p.name}`} className="chip">{p.name} · {p.score}{p.answered ? " ✓" : ""}</span>
             ))}
             <span className="chip time">{remaining}s</span>
           </div>
@@ -358,10 +359,16 @@ export default function Home() {
             {(!fb.correct || !game.solo) && (
               <button
                 className="btn primary"
-                disabled={busy || (!game.solo && !game.players.every((p) => p.answered))}
+                disabled={busy || (!game.solo && (!game.players.every((p) => p.answered) || game.players[game.me].ready))}
                 onClick={() => run({ action: "next", code: game.code, questionId: q.id })}
               >
-                {!game.solo && game.players[game.me].ready ? "Laukiame kito" : "Toliau"} <ArrowRight size={18} />
+                {game.solo
+                  ? "Toliau"
+                  : !game.players.every((p) => p.answered)
+                    ? `Atsakė ${game.players.filter((p) => p.answered).length} / ${game.players.length}`
+                    : game.players[game.me].ready
+                      ? "Laukiame kitų"
+                      : game.me === 0 ? "Toliau visiems" : "Toliau"} <ArrowRight size={18} />
               </button>
             )}
           </section>
@@ -377,8 +384,11 @@ export default function Home() {
     const missed = game.review.filter((r) => !r.answer?.correct);
     const right = game.review.length - missed.length;
     const pct = Math.round((right / Math.max(1, game.review.length)) * 100);
-    const me = game.players[game.me];
-    const winner = !game.solo && [...game.players].sort((a, b) => b.score - a.score)[0];
+    const ranked = game.players
+      .map((p, index) => ({ ...p, index }))
+      .sort((a, b) => b.score - a.score);
+    const myPlace = ranked.findIndex((p) => p.index === game.me) + 1;
+    const tiedForFirst = ranked.length > 1 && ranked[0].score === ranked[1].score;
     return (
       <main className="study">
         <div className="study-top">
@@ -393,7 +403,7 @@ export default function Home() {
           <h1 className="results-title">
             {game.solo
               ? pct === 100 ? "Idealiai." : pct >= 70 ? "Gerai einasi." : "Kartok ir įsiminsi."
-              : winner && winner.name === me.name ? "Laimėjai!" : "Šįkart ne."}
+              : myPlace === 1 ? (tiedForFirst ? "Lygiosios!" : "Laimėjai!") : `${myPlace} vieta iš ${ranked.length}`}
           </h1>
           <div className="pills">
             <span className="pill good"><Check size={15} />Žinai {right}</span>
@@ -401,9 +411,15 @@ export default function Home() {
             <span className="pill"><Flame size={15} />Geriausia serija {sessionBest}</span>
           </div>
           {!game.solo && (
-            <div className="scoreboard">
-              {game.players.map((p) => <div key={p.name}><strong>{p.score}</strong><span>{p.name}</span></div>)}
-            </div>
+            <ol className="scoreboard">
+              {ranked.map((p, i) => (
+                <li key={`${p.index}-${p.name}`} className={p.index === game.me ? "is-me" : ""}>
+                  <span className="place">{i + 1}</span>
+                  <span className="who">{p.name}</span>
+                  <strong>{p.score}</strong>
+                </li>
+              ))}
+            </ol>
           )}
           <div className="actions">
             {game.solo && missed.length > 0 && (
@@ -476,7 +492,7 @@ export default function Home() {
         </button>
         <button className="mode" disabled={busy} onClick={() => setShowDuel((v) => !v)}>
           <span className="mode-icon"><Swords size={20} /></span>
-          <span className="mode-text"><strong>Dvikova</strong><small>Dviese iš skirtingų telefonų</small></span>
+          <span className="mode-text"><strong>Dvikova</strong><small>2–8 žaidėjai, kiekvienas iš savo telefono</small></span>
           <ArrowRight size={18} style={{ transform: showDuel ? "rotate(90deg)" : undefined }} />
         </button>
         {showDuel && (
