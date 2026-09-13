@@ -13,9 +13,7 @@
 .world-map-wrap svg{display:block;width:100%;height:auto;background:#d7ebfb;border-radius:20px}
 .world-ocean{fill:#b9d7f3}
 .world-country{fill:#f4f8fc;stroke:#7f9bb8;stroke-width:.55}
-.world-country.is-target{fill:#195be2;stroke:#0b3ea8;stroke-width:1.6}
-.world-pin{fill:#123a86;stroke:#fff;stroke-width:2.4}
-.world-pin-halo{fill:#195be2;opacity:.25;stroke:none}
+.world-country.is-target{fill:#195be2;stroke:#0b3ea8;stroke-width:1.4}
 .map-caption{margin:10px 0 0;text-align:center;color:var(--muted);font-size:14px;font-weight:700}
 .ok{color:#087443;font-weight:700}
 .bad{color:#b42318;font-weight:700}
