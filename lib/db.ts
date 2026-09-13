@@ -12,13 +12,15 @@ type Statement = {
 type Database = { prepare: (sql: string) => Statement };
 
 function postgresUrl() {
-  return (
-    process.env.POSTGRES_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
-    (process.env.DATABASE_URL?.startsWith("postgres")
-      ? process.env.DATABASE_URL
-      : undefined)
-  );
+  const candidates = [
+    process.env.POSTGRES_URL_NON_POOLING,
+    process.env.DATABASE_URL_UNPOOLED,
+    process.env.POSTGRES_URL,
+    process.env.POSTGRES_PRISMA_URL,
+    process.env.DATABASE_URL,
+    process.env.NEON_DATABASE_URL,
+  ];
+  return candidates.find((value) => value?.startsWith("postgres"));
 }
 
 function sqliteUrl() {
@@ -41,9 +43,13 @@ function toPostgres(sql: string) {
     : sql;
   let index = 0;
   const parameterized = rewritten.replace(/\?/g, () => `$${++index}`);
-  return ignoreInsert
-    ? `${parameterized} ON CONFLICT (code) DO NOTHING`
-    : parameterized;
+  if (ignoreInsert) {
+    return `${parameterized} ON CONFLICT (code) DO NOTHING RETURNING code`;
+  }
+  if (/^UPDATE\s/i.test(parameterized) && !/RETURNING\s/i.test(parameterized)) {
+    return `${parameterized} RETURNING code`;
+  }
+  return parameterized;
 }
 
 const SQLITE_SCHEMA = `
@@ -78,9 +84,10 @@ CREATE TABLE IF NOT EXISTS games (
       const pgSql = toPostgres(query);
       return makeStatement(async (values) => {
         const result = await sql.query(pgSql, values);
+        const rows = result.rows as FirstRow[];
         return {
-          rows: result.rows as FirstRow[],
-          changes: result.rowCount ?? 0,
+          rows,
+          changes: typeof result.rowCount === "number" ? result.rowCount : rows.length,
         };
       });
     },
