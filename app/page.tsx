@@ -6,7 +6,8 @@ import { WorldMap, neighborIso3 } from "@/components/WorldMap";
 import type { PublicGame, Settings } from "@/lib/game";
 import { countries, regions } from "@/lib/game";
 import { flagUrl } from "@/lib/geo";
-import { emptyStats, loadStats, masteredCount, recordAnswer, saveStats, touchDay, type Stats } from "@/lib/stats";
+import { emptyStats, loadStats, masteredCount, masteryOf, recordAnswer, saveStats, touchDay, type Stats } from "@/lib/stats";
+import { KD1_PAGES, KD1_SECTIONS, KD1_TITLE, topics } from "@/lib/topics";
 
 function Flag({ isoA3, size = 28 }: { isoA3?: string; size?: number }) {
   const src = flagUrl(isoA3);
@@ -42,16 +43,19 @@ async function requestGame(body?: Record<string, unknown>, code?: string) {
 /** Learn mode: multiple choice on the first pass, typed answers once you retry misses. */
 function usesChoice(game: PublicGame) {
   if (!game.question) return false;
+  if (game.question.choiceOnly) return true;
   if (game.settings.input === "choice") return true;
   if (game.settings.input === "mix") return game.round === 0;
   return false;
 }
 
 const modeOptions: { value: Settings["mode"]; label: string }[] = [
+  { value: "kd1", label: `${KD1_TITLE} (${KD1_PAGES})` },
   { value: "mixed", label: "Valstybės ir sostinės" },
   { value: "map", label: "Tik valstybės žemėlapyje" },
   { value: "capital", label: "Tik sostinės" },
 ];
+const MODE_KEY = "atlas-mode";
 
 const duelLengths: { value: number; label: string; hint: string }[] = [
   { value: 20, label: "Greita dvikova", hint: "20 klausimų" },
@@ -89,6 +93,8 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStats(loadStats());
     setName(localStorage.getItem(NAME_KEY) || "");
+    const savedMode = localStorage.getItem(MODE_KEY);
+    if (modeOptions.some((o) => o.value === savedMode)) setMode(savedMode as Settings["mode"]);
     const code = (new URLSearchParams(window.location.search).get("code") || "").toUpperCase();
     if (!code) return;
     // Refreshing mid-session should resume it; otherwise treat the code as an invite.
@@ -170,7 +176,8 @@ export default function Home() {
   );
 
   // Solo: correct answers advance on their own; wrong ones wait so you can read the fact card.
-  const advanceCode = game?.solo && game.status === "playing" && game.feedback?.correct ? game.code : "";
+  // Topic facts with a note stay on screen so the note can be read.
+  const advanceCode = game?.solo && game.status === "playing" && game.feedback?.correct && !(game.question?.kind === "topic" && game.feedback.note) ? game.code : "";
   const advanceId = advanceCode ? game?.question?.id ?? "" : "";
   useEffect(() => {
     if (!advanceId) return;
@@ -191,6 +198,7 @@ export default function Home() {
       return;
     }
     localStorage.setItem(NAME_KEY, trimmed);
+    localStorage.setItem(MODE_KEY, mode);
     if (kind !== "duel") {
       setStats((s) => {
         const updated = touchDay(s);
@@ -204,7 +212,7 @@ export default function Home() {
       action: "create",
       name: trimmed,
       solo: kind !== "duel",
-      settings: { mode, input: kind === "learn" ? "mix" : "write", region: regions[0], rounds: kind === "duel" ? duelRounds : 20 },
+      settings: { mode, input: kind === "learn" ? "mix" : "write", region: regions[0], rounds: kind === "duel" ? duelRounds : mode === "kd1" ? 30 : 20 },
     });
   }
 
@@ -293,6 +301,11 @@ export default function Home() {
               <p className="label">Kuri valstybė pažymėta?</p>
               <WorldMap isoA3={q.isoA3} highlightNeighbors={Boolean(fb)} />
             </>
+          ) : q.kind === "topic" ? (
+            <>
+              <p className="label">{q.section}</p>
+              <h1 className="prompt-title topic">{q.prompt}</h1>
+            </>
           ) : (
             <>
               <p className="label">Sostinė</p>
@@ -341,6 +354,7 @@ export default function Home() {
             ref={(el) => el?.scrollIntoView({ behavior: "smooth", block: "nearest" })}
           >
             <p className="verdict-title">{fb.correct ? "Teisingai" : `Teisingas atsakymas: ${fb.expected}`}</p>
+            {q.kind === "topic" && fb.note && <p className="note">{fb.note}</p>}
             {(!fb.correct || !game.solo) && fact && (
               <div className="fact">
                 <div className="fact-head">
@@ -356,7 +370,7 @@ export default function Home() {
                 )}
               </div>
             )}
-            {(!fb.correct || !game.solo) && (
+            {(!fb.correct || !game.solo || (q.kind === "topic" && fb.note)) && (
               <button
                 className="btn primary"
                 disabled={busy || (!game.solo && (!game.players.every((p) => p.answered) || game.players[game.me].ready))}
@@ -448,7 +462,11 @@ export default function Home() {
   }
 
   /* ---------- Home ---------- */
-  const mastered = masteredCount(stats);
+  const isKd1 = mode === "kd1";
+  const mastered = isKd1
+    ? topics.filter((t) => masteryOf(stats, `${t.q}|topic`) === "known").length
+    : masteredCount(stats) - topics.filter((t) => masteryOf(stats, `${t.q}|topic`) === "known").length;
+  const total = isKd1 ? topics.length : totalItems;
   return (
     <main className="home">
       <div className="home-top">
@@ -460,11 +478,18 @@ export default function Home() {
       </div>
 
       <section className="hero">
-        <p className="label">Geografijos rinkinys</p>
-        <h1>{countries.length} valstybės.<br />{capitalCount} sostinės.</h1>
+        <p className="label">{isKd1 ? `Geografija · ${KD1_PAGES}` : "Geografijos rinkinys"}</p>
+        {isKd1 ? (
+          <>
+            <h1>Kontrolinis darbas.<br />1 skyrius.<br /><small>{topics.length} klausimų iš {KD1_SECTIONS.length} temų</small></h1>
+            <p className="hero-sections">{KD1_SECTIONS.join(" · ")}</p>
+          </>
+        ) : (
+          <h1>{countries.length} valstybės.<br />{capitalCount} sostinės.</h1>
+        )}
         <div className="hero-progress">
-          <div className="bar"><span style={{ width: `${(mastered / totalItems) * 100}%` }} /></div>
-          <span>{mastered} / {totalItems} išmokta</span>
+          <div className="bar"><span style={{ width: `${(mastered / total) * 100}%` }} /></div>
+          <span>{mastered} / {total} išmokta</span>
         </div>
         <div className="row wrap">
           <span className="pill"><Trophy size={15} />Serija {stats.bestStreak}</span>

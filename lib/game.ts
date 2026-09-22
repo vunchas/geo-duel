@@ -1,22 +1,41 @@
 import data from './countries.json';
+import {topics,topicById,type Topic} from './topics';
 export type Country={id:number;country:string;capital:string;capitalRequired:boolean;isoA3:string;continent:string;countryAliases?:string[];capitalAliases?:string[]};
 export const countries:Country[]=data.countries;
 export const regions=['Visas pasaulis','Europa','Amerika','Afrika','Azija','Okeanija'];
-export type Settings={mode:'map'|'capital'|'mixed';input:'write'|'choice'|'mix';region:string;rounds:number};
-export type Question={id:string;countryId:number;kind:'map'|'capital';options:string[]};
+export type Settings={mode:'map'|'capital'|'mixed'|'kd1';input:'write'|'choice'|'mix';region:string;rounds:number};
+export type QuestionKind='map'|'capital'|'topic';
+export type Question={id:string;countryId:number;kind:QuestionKind;topicId?:string;options:string[];choiceOnly?:boolean};
+export type QuestionRef={countryId:number;kind:QuestionKind;topicId?:string};
 export type Answer={text:string;correct:boolean;points:number};
 export type Player={token:string;name:string;score:number;answers:Record<string,Answer>;ready:boolean};
 export type Game={code:string;solo:boolean;settings:Settings;players:Player[];questions:Question[];index:number;status:'lobby'|'playing'|'finished';startedAt:number;createdAt:number;round?:number};
 export const normalize=(s:string)=>s.toLocaleLowerCase('lt').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
-export function isCorrect(q:Question,text:string){const c=countries.find(c=>c.id===q.countryId)!;return [q.kind==='map'?c.country:c.capital,...(q.kind==='map'?c.countryAliases||[]:c.capitalAliases||[])].some(a=>normalize(a)===normalize(text));}
-export function answerFor(q:Question){const c=countries.find(c=>c.id===q.countryId)!;return q.kind==='map'?c.country:c.capital;}
+/** Topic answers: exact match on the answer or any alias; "a+b" aliases require every part to appear. */
+function topicMatches(t:Topic,text:string){const n=normalize(text);if(!n)return false;if(n===normalize(t.a))return true;return (t.accept||[]).some(a=>a.includes('+')?a.split('+').every(part=>n.includes(normalize(part))):n===normalize(a));}
+export function isCorrect(q:Question,text:string){if(q.kind==='topic'){const t=topicById.get(q.topicId||'');return !!t&&topicMatches(t,text);}const c=countries.find(c=>c.id===q.countryId)!;return [q.kind==='map'?c.country:c.capital,...(q.kind==='map'?c.countryAliases||[]:c.capitalAliases||[])].some(a=>normalize(a)===normalize(text));}
+export function answerFor(q:Question){if(q.kind==='topic')return topicById.get(q.topicId||'')?.a||'';const c=countries.find(c=>c.id===q.countryId)!;return q.kind==='map'?c.country:c.capital;}
 export function shuffle<T>(a:T[]):T[]{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-export function makeQuestions(s:Settings,only?:{countryId:number;kind:'map'|'capital'}[]):Question[]{
+function topicQuestions(s:Settings,only?:QuestionRef[]):Question[]{
+ const pool=topics.filter(t=>!only||only.some(o=>o.kind==='topic'&&o.topicId===t.id));
+ return shuffle(pool).slice(0,s.rounds===0?pool.length:s.rounds).map((t,i)=>{
+  const fill=shuffle(topics.filter(o=>o.id!==t.id&&o.section===t.section).map(o=>o.a)).filter(a=>a!==t.a&&!(t.wrong||[]).includes(a));
+  const wrong=[...new Set([...(t.wrong||[]),...fill])].slice(0,3);
+  return {id:`${i}-${t.id}-topic`,countryId:0,kind:'topic',topicId:t.id,choiceOnly:!!t.choiceOnly,options:shuffle([t.a,...wrong])};
+ });
+}
+export function makeQuestions(s:Settings,only?:QuestionRef[]):Question[]{
+ if(s.mode==='kd1')return topicQuestions(s,only);
  const pool=countries.filter(c=>s.region==='Visas pasaulis'||c.continent===s.region);
  const all=pool.flatMap(c=>[...(s.mode!=='capital'?[{countryId:c.id,kind:'map' as const}]:[]),...(s.mode!=='map'&&c.capitalRequired?[{countryId:c.id,kind:'capital' as const}]:[])]).filter(q=>!only||only.some(a=>a.countryId===q.countryId&&a.kind===q.kind));
  return shuffle(all).slice(0,s.rounds===0?all.length:s.rounds).map((q,i)=>{const correct=answerFor({...q,id:'',options:[]});const candidates=countries.filter(c=>q.kind==='map'||c.capitalRequired);const same=candidates.filter(c=>c.continent===countries.find(x=>x.id===q.countryId)!.continent);const values=shuffle([...new Set([...shuffle(same),...shuffle(candidates)].map(c=>q.kind==='map'?c.country:c.capital).filter(a=>a!==correct))]).slice(0,3);return {...q,id:`${i}-${q.countryId}-${q.kind}`,options:shuffle([correct,...values])};});
 }
-export function settingsFrom(value:unknown):Settings{const s=(value&&typeof value==='object'?value:{}) as Partial<Settings>;return {mode:['map','capital','mixed'].includes(s.mode||'')?s.mode!:'map',input:['write','choice','mix'].includes(s.input||'')?s.input!:'write',region:regions.includes(s.region||'')?s.region!:'Visas pasaulis',rounds:[0,10,20,30,40,60,80].includes(s.rounds as number)?s.rounds!:20};}
+export function settingsFrom(value:unknown):Settings{const s=(value&&typeof value==='object'?value:{}) as Partial<Settings>;return {mode:['map','capital','mixed','kd1'].includes(s.mode||'')?s.mode!:'map',input:['write','choice','mix'].includes(s.input||'')?s.input!:'write',region:regions.includes(s.region||'')?s.region!:'Visas pasaulis',rounds:[0,10,20,30,40,60,80].includes(s.rounds as number)?s.rounds!:20};}
 export function expireAnswers(g:Game){if(g.solo||g.status!=='playing'||Date.now()-g.startedAt<60000)return false;const q=g.questions[g.index];let changed=false;for(const p of g.players){if(!p.answers[q.id]){p.answers[q.id]={text:'',correct:false,points:0};changed=true;}}return changed;}
-export function publicGame(g:Game,token:string){const me=g.players.findIndex(p=>p.token===token);if(me<0)throw Error('Prisijunk prie kambario iš naujo.');const q=g.questions[g.index];const c=q?countries.find(c=>c.id===q.countryId)!:null;const mine=q?g.players[me].answers[q.id]:null;const revealed=g.status==='finished'||g.players.every(p=>!!p.answers[q?.id]);return {code:g.code,solo:g.solo,settings:g.settings,status:g.status,index:g.index,total:g.questions.length,round:g.round||0,me,startedAt:g.startedAt,serverNow:Date.now(),question:q?{id:q.id,kind:q.kind,isoA3:q.kind==='map'||mine?c!.isoA3:undefined,country:q.kind==='capital'||mine?c!.country:undefined,options:q.options}:null,players:g.players.map(p=>({name:p.name,score:p.score,ready:p.ready,answered:!!p.answers[q?.id],answer:revealed||p.token===token?p.answers[q?.id]||null:null})),feedback:mine&&q?{...mine,expected:answerFor(q),country:c!.country,capital:c!.capital,capitalRequired:c!.capitalRequired,continent:c!.continent,isoA3:c!.isoA3}:null,review:g.status==='finished'?g.questions.map(q=>{const c=countries.find(c=>c.id===q.countryId)!;return {id:q.id,kind:q.kind,country:c.country,isoA3:c.isoA3,expected:answerFor(q),answer:g.players[me].answers[q.id]};}):[]};}
+export function publicGame(g:Game,token:string){const me=g.players.findIndex(p=>p.token===token);if(me<0)throw Error('Prisijunk prie kambario iš naujo.');const q=g.questions[g.index];const c=q&&q.kind!=='topic'?countries.find(c=>c.id===q.countryId)!:null;const t=q?.kind==='topic'?topicById.get(q.topicId||''):undefined;const mine=q?g.players[me].answers[q.id]:null;const revealed=g.status==='finished'||g.players.every(p=>!!p.answers[q?.id]);
+ return {code:g.code,solo:g.solo,settings:g.settings,status:g.status,index:g.index,total:g.questions.length,round:g.round||0,me,startedAt:g.startedAt,serverNow:Date.now(),
+ question:q?{id:q.id,kind:q.kind,choiceOnly:!!q.choiceOnly,isoA3:c&&(q.kind==='map'||mine)?c.isoA3:undefined,country:c&&(q.kind==='capital'||mine)?c.country:undefined,prompt:t?.q,section:t?.section,options:q.options}:null,
+ players:g.players.map(p=>({name:p.name,score:p.score,ready:p.ready,answered:!!p.answers[q?.id],answer:revealed||p.token===token?p.answers[q?.id]||null:null})),
+ feedback:mine&&q?{...mine,expected:answerFor(q),country:c?c.country:t?.q||'',capital:c?.capital||'',capitalRequired:!!c?.capitalRequired,continent:c?c.continent:t?.section||'',isoA3:c?.isoA3,note:t?.note}:null,
+ review:g.status==='finished'?g.questions.map(q=>{if(q.kind==='topic'){const t=topicById.get(q.topicId||'');return {id:q.id,kind:q.kind,country:t?.q||'',isoA3:undefined as string|undefined,expected:answerFor(q),answer:g.players[me].answers[q.id]};}const c=countries.find(c=>c.id===q.countryId)!;return {id:q.id,kind:q.kind,country:c.country,isoA3:c.isoA3 as string|undefined,expected:answerFor(q),answer:g.players[me].answers[q.id]};}):[]};}
 export type PublicGame=ReturnType<typeof publicGame>;

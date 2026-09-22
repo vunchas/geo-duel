@@ -34,7 +34,7 @@ export async function POST(request:Request){
  if(b.action==='retry'){
   if(!g.solo)throw Error('Klaidų kartojimas yra treniruotėje.');
   if(g.status!=='finished')throw Error('Pirmiausia baik žaidimą.');
-  const missed=g.questions.filter(q=>!g.players[0].answers[q.id]?.correct).map(q=>({countryId:q.countryId,kind:q.kind as 'map'|'capital'}));
+  const missed=g.questions.filter(q=>!g.players[0].answers[q.id]?.correct).map(q=>({countryId:q.countryId,kind:q.kind,topicId:q.topicId}));
   if(!missed.length)throw Error('Klaidų nėra — visos teisingos.');
   g.questions=makeQuestions({...g.settings,rounds:0},missed);
   g.index=0;g.status='playing';g.startedAt=Date.now();g.round=(g.round||0)+1;
