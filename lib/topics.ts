@@ -30,6 +30,26 @@ const S4 = "Universalūs gerovės rodikliai";
 const S5 = "Europos Sąjunga ir mes";
 const S6 = "Stipri ir silpna Europa";
 const S7 = "Kas trukdo šalims vystytis";
+const S8 = "Kongo DR ir Bangladešas";
+const S9 = "Europos ribos";
+
+const MASLOU = ["Fiziologiniai", "Saugumo", "Socialiniai", "Pagarbos", "Savirealizacijos"];
+const MASLOU_FORMS: Record<string, string[]> = {
+  Fiziologiniai: ["fiziologinis", "fiziologiniu"],
+  Saugumo: ["saugumas", "saugumu"],
+  Socialiniai: ["socialinis", "socialiniu", "bendravimo"],
+  Pagarbos: ["pagarba", "pagarbu", "pripažinimo", "pripazinimo"],
+  Savirealizacijos: ["savirealizacija", "savirealizaciju"],
+};
+const maslou = (id: string, example: string, a: string): Topic => ({
+  id,
+  section: S2,
+  q: `Kuriam Maslou poreikiui priskirtinas pavyzdys: „${example}“?`,
+  a,
+  accept: [...MASLOU_FORMS[a], `${a.toLowerCase()} poreikiai`, `${a.toLowerCase()} poreikis`],
+  wrong: MASLOU.filter((m) => m !== a),
+  note: "Piramidė nuo apačios: fiziologiniai → saugumo → socialiniai → pagarbos → savirealizacijos.",
+});
 
 const KLIUTYS = ["Istorinės kliūtys", "Gamtinės kliūtys", "Socialinės ir politinės kliūtys", "Ekonominės kliūtys"];
 const kliutis = (id: string, q: string, a: string, note?: string): Topic => ({
@@ -83,6 +103,12 @@ export const topics: Topic[] = [
   { id: "v31", section: S1, q: "Į kokias grupes valstybės skirstomos pagal demokratijos lygį?", a: "Demokratines, pusiau demokratines ir autoritarines", accept: ["demokratines+autoritarines"], wrong: ["Unitarines ir federacines", "Monarchijas ir respublikas", "Stiprias, pažangias ir silpnas"] },
   { id: "v32", section: S1, q: "Kokie demokratinės valstybės požymiai?", a: "Partijų pasirinkimas, laisvi rinkimai, žodžio laisvė", choiceOnly: true, wrong: ["Klastojami rinkimai, varžomos partijos, cenzūra", "Vienas valdovas visam gyvenimui", "Valdžia dvasininkų rankose"] },
   { id: "v33", section: S1, q: "Ką vadiname autoritarine valstybe?", a: "Valstybę, kur klastojami rinkimai, varžomos partijos, cenzūruojama spauda", choiceOnly: true, wrong: ["Valstybę su laisvais rinkimais ir žodžio laisve", "Valstybę, valdomą tautos renkamo parlamento", "Valstybę, kur galioja vienodi įstatymai"] },
+  /* iš kontrolinio pavyzdžių */
+  { id: "v34", section: S1, q: "Kurioje eilutėje nurodytos mikrovalstybės?", a: "Malta, San Marinas", choiceOnly: true, wrong: ["Juodkalnija, Kosovas", "Šveicarija, Austrija", "Šiaurės Makedonija, Sakartvelas"], note: "Europos mikrovalstybės: Vatikanas, Monakas, San Marinas, Lichtenšteinas, Andora, Malta." },
+  { id: "v35", section: S1, q: "Kurioje eilutėje nurodytos jūrinės valstybės?", a: "Pietų Korėja, Venesuela", choiceOnly: true, wrong: ["Mongolija, Čekija", "Kazachstanas, Šveicarija", "Bolivija, Paragvajus"], note: "Kitose eilutėse – vien žemyninės valstybės be išėjimo į jūrą." },
+  { id: "v36", section: S1, q: "Kas yra jūrinė (pajūrio) valstybė?", a: "Valstybė, turinti išėjimą į jūrą ar vandenyną", choiceOnly: true, wrong: ["Valstybė, esanti saloje", "Valstybė, neturinti išėjimo į jūrą", "Valstybė, valdoma iš jūros uosto"], note: "Pvz., Ispanija, Lietuva, Pietų Korėja." },
+  { id: "v37", section: S1, q: "Kas yra žemyninė (sausumos) valstybė?", a: "Valstybė, neturinti išėjimo į jūrą", choiceOnly: true, wrong: ["Valstybė, esanti žemyno viduryje ir turinti daug upių", "Valstybė, turinti išėjimą į jūrą", "Didžiausia žemyno valstybė"], note: "Pvz., Mongolija, Čekija, Šveicarija, Bolivija." },
+  { id: "v38", section: S1, q: "Kuri iš šių Europos valstybių yra žemyninė (be išėjimo į jūrą)?", a: "Čekija", wrong: ["Danija", "Graikija", "Portugalija"] },
 
   /* ---------- II. Kas yra gerovė (38–39 psl.) ---------- */
   { id: "g1", section: S2, q: "Koks mokslininkas sukūrė poreikių piramidę?", a: "Maslou", accept: ["maslow", "a. h. maslou", "abraomas maslou"], wrong: ["Darvinas", "Froidas", "Einšteinas"] },
@@ -98,6 +124,15 @@ export const topics: Topic[] = [
   { id: "g11", section: S2, q: "Kaip poreikiai priklauso nuo valstybės ekonomikos?", a: "Stipresnių valstybių gyventojams didesni poreikiai", choiceOnly: true, wrong: ["Silpnesnių valstybių gyventojams didesni poreikiai", "Nepriklauso", "Priklauso tik nuo valstybės ploto"] },
   { id: "g12", section: S2, q: "Kodėl daug uždirbantys žmonės siekia savirealizacijos poreikių?", a: "Turi daugiau pinigų, liekančių nuo fiziologinių poreikių", choiceOnly: true, wrong: ["Neturi fiziologinių poreikių", "Juos verčia valstybė", "Nes turi daugiau laisvo laiko"] },
   { id: "g13", section: S2, q: "Kodėl skiriasi Madagaskaro ir Šveicarijos gyventojo poreikiai?", a: "Lemia skirtingos pajamos", accept: ["pajamos", "skirtingos pajamos"], wrong: ["Lemia skirtingas klimatas", "Lemia kalba", "Lemia valstybės plotas"] },
+  /* iš kontrolinio pavyzdžių */
+  { id: "g14", section: S2, q: "Kokie 5 Maslou piramidės lygiai (nuo apačios į viršų)?", a: "Fiziologiniai, saugumo, socialiniai, pagarbos, savirealizacijos", choiceOnly: true,
+    wrong: ["Maistas, vanduo, oras, namai, pinigai", "Ekonominiai, politiniai, socialiniai, gamtiniai, istoriniai", "Savirealizacijos, pagarbos, socialiniai, saugumo, fiziologiniai"] },
+  maslou("g15", "žmogaus organizmo funkcionavimui reikalingas maistas ir vanduo", "Fiziologiniai"),
+  maslou("g16", "suaugusio žmogaus siekis turėti stabilias pajamas ir nuosavą būstą", "Saugumo"),
+  maslou("g17", "žmogaus poreikis bendrauti ir bendradarbiauti su kitais", "Socialiniai"),
+  maslou("g18", "žmogaus siekis naujoje darbo vietoje ar veikloje padaryti gerą įspūdį kitiems", "Pagarbos"),
+  maslou("g19", "žmogaus noras siekti savo užsibrėžtų tikslų", "Savirealizacijos"),
+  { id: "g20", section: S2, q: "Kuris iš šių mokslininkų sukūrė poreikių piramidę: Humboldtas, Vespučis, Maslou ar Skotas?", a: "Maslou", accept: ["maslow", "a. h. maslou"], wrong: ["A. Humboldtas", "A. Vespučis", "R. Skotas"], note: "Humboldtas – gamtininkas, Vespučis – keliautojas, Skotas – poliarinis tyrinėtojas." },
 
   /* ---------- III. Kas yra ekonominė galia (42–43 psl.) ---------- */
   { id: "e1", section: S3, q: "Kas yra BVP (bendrasis vidaus produktas)?", a: "Metinė pagamintų prekių ir suteiktų paslaugų visuma, išreikšta JAV doleriais", choiceOnly: true, wrong: ["Valstybės gyventojų skaičius", "Vidutinė gyvenimo trukmė", "Mėsainio kaina skirtingose šalyse"] },
@@ -121,6 +156,14 @@ export const topics: Topic[] = [
   { id: "e18", section: S3, q: "Kokie 4 rodikliai atspindi valstybių ekonominę galią?", a: "BVP, BVP 1 gyventojui, perkamoji galia ir „Big Mac“ indeksas", choiceOnly: true, wrong: ["ŽSRI, PLI, raštingumas, gyvenimo trukmė", "Plotas, gyventojai, sienos, sostinė", "Eksportas, importas, muitai, skolos"] },
   { id: "e19", section: S3, q: "BVP ne visada objektyvus rodiklis, todėl naudojamas jam giminingas...", a: "BVP 1 gyventojui", accept: ["bvp 1 gyv", "bvp vienam gyventojui"], wrong: ["ŽSRI", "Laimės indeksas", "Ekologinis pėdsakas"] },
   { id: "e20", section: S3, q: "Kas lemia gyvenimo kokybę valstybėje?", a: "Šalies ekonominė galia", accept: ["ekonominė galia", "ekonomine galia", "ekonomika"], wrong: ["Valstybės plotas", "Klimatas", "Valdymo forma"] },
+  /* iš kontrolinio pavyzdžių */
+  { id: "e21", section: S3, q: "Kuris iš šių rodiklių NĖRA ekonominės galios rodiklis?", a: "Pasaulinis laimės indeksas", accept: ["laimės indeksas", "laimes indeksas", "pli", "žsri", "zsri"], wrong: ["„Big Mac“ indeksas", "BVP 1 gyv.", "BVP 1 gyv. pagal perkamąją galią"], note: "PLI ir ŽSRI – universalūs gerovės rodikliai, o ne ekonominės galios." },
+  { id: "e22", section: S3, q: "Kuris iš šių rodiklių NĖRA ekonominės galios rodiklis?", a: "ŽSRI", accept: ["zsri", "socialinės raidos indeksas", "laimės indeksas", "pli"], wrong: ["„Big Mac“ indeksas", "BVP 1 gyv.", "BVP 1 gyv. pagal perkamąją galią"], note: "ŽSRI – universalus gerovės rodiklis (BVP 1 gyv. + raštingumas + gyvenimo trukmė)." },
+  { id: "e23", section: S3, q: "Valstybės BVP – 500 mlrd. USD, gyventojų – 10 mln. Koks BVP 1 gyventojui?", a: "50 000 USD", accept: ["50000", "50 000", "50 tūkst", "50 tukst", "50k"], wrong: ["5 000 USD", "500 000 USD", "50 USD"], note: "500 000 000 000 ÷ 10 000 000 = 50 000." },
+  { id: "e24", section: S3, q: "Valstybės BVP – 200 mlrd. USD, gyventojų – 40 mln. Koks BVP 1 gyventojui?", a: "5 000 USD", accept: ["5000", "5 000", "5 tūkst", "5 tukst", "5k"], wrong: ["50 000 USD", "8 000 USD", "500 USD"], note: "200 mlrd. ÷ 40 mln. = 5 000." },
+  { id: "e25", section: S3, q: "Valstybės BVP – 60 mlrd. USD, gyventojų – 3 mln. Koks BVP 1 gyventojui?", a: "20 000 USD", accept: ["20000", "20 000", "20 tūkst", "20 tukst", "20k"], wrong: ["2 000 USD", "180 000 USD", "200 USD"], note: "60 mlrd. ÷ 3 mln. = 20 000 (panašu į Lietuvą)." },
+  { id: "e26", section: S3, q: "A: BVP 200 mlrd. USD, 40 mln. gyv. B: BVP 100 mlrd. USD, 5 mln. gyv. Kuri ekonomiškai stipresnė pagal BVP 1 gyv.?", a: "B (20 000 USD prieš 5 000 USD)", accept: ["b"], wrong: ["A (jos BVP didesnis)", "Abi vienodos", "Neįmanoma nustatyti"], note: "Didesnis bendras BVP nereiškia stipresnės ekonomikos – reikia dalinti gyventojų skaičiui." },
+  { id: "e27", section: S3, q: "A: BVP 4 000 mlrd. USD, 84 mln. gyv. (Vokietija). B: BVP 900 mlrd. USD, 8,7 mln. gyv. (Šveicarija). Kurios BVP 1 gyv. didesnis?", a: "B – Šveicarijos (~100 000 prieš ~48 000 USD)", accept: ["b", "šveicarija", "sveicarija", "šveicarijos", "sveicarijos"], wrong: ["A – Vokietijos", "Vienodas", "Neįmanoma nustatyti"], note: "Mažos turtingos valstybės (Šveicarija, Liuksemburgas, Norvegija) pagal BVP 1 gyv. lenkia dideles." },
 
   /* ---------- IV. Universalūs gerovės rodikliai (44–45 psl.) ---------- */
   { id: "u1", section: S4, q: "Kokie skiriami du universalūs valstybės gerovės rodikliai?", a: "ŽSRI ir pasaulinis laimės indeksas (PLI)", accept: ["žsri+laimės", "zsri+laimes", "žsri+pli", "zsri+pli"], wrong: ["BVP ir „Big Mac“ indeksas", "Plotas ir gyventojų skaičius", "Eksportas ir importas"] },
@@ -172,6 +215,12 @@ export const topics: Topic[] = [
   { id: "s21", section: S5, q: "Kokie ES plėtros tikslai?", a: "Pažangesnė, socialiai atsakingesnė, žalesnė, piliečiams artimesnė, geriau sujungta Europa", choiceOnly: true, wrong: ["Didesnė kariuomenė ir daugiau sienų", "Bendra kalba ir viena vyriausybė", "Daugiau anglių kasybos"] },
   { id: "s22", section: S5, q: "Į ką nukreipti ES finansuojami projektai (be žemės ūkio)?", a: "Aplinkosaugą, klimato kaitą ir sanglaudos politiką", choiceOnly: true, wrong: ["Karybą ir ginklus", "Kosmoso tyrimus", "Kazino ir loterijas"] },
   { id: "s23", section: S5, q: "Paaiškink ES laisvę „nevaržomas kapitalo judėjimas“", a: "Pinigus ir investicijas galima laisvai pervesti ir investuoti bet kurioje ES valstybėje", choiceOnly: true, wrong: ["Žmonės gali laisvai keliauti be vizų", "Prekės gabenamos be muitų", "Galima dirbti bet kurioje ES šalyje"] },
+  /* iš kontrolinio pavyzdžių */
+  { id: "s24", section: S5, q: "Kurioje eilutėje nurodytos valstybės NĖRA ES narės?", a: "Šveicarija, Norvegija", choiceOnly: true, wrong: ["Kipras, Malta", "Slovakija, Čekija", "Suomija, Estija"], note: "Šveicarija, Norvegija, Islandija, JK, Juodkalnija, Serbija, Ukraina – ne ES." },
+  { id: "s25", section: S5, q: "Kurioje eilutėje nurodytos valstybės NĖRA ES narės?", a: "Islandija, Juodkalnija", choiceOnly: true, wrong: ["Slovėnija, Kroatija", "Suomija, Estija", "Kipras, Malta"] },
+  { id: "s26", section: S5, q: "Kurioje eilutėje nurodytos ES valstybės?", a: "Kipras, Malta", choiceOnly: true, wrong: ["Šveicarija, Norvegija", "Islandija, Juodkalnija", "Serbija, Ukraina"] },
+  { id: "s27", section: S5, q: "Kuri iš šių valstybių yra ES narė?", a: "Kroatija", wrong: ["Norvegija", "Šveicarija", "Serbija"] },
+  { id: "s28", section: S5, q: "Kuri iš šių valstybių NĖRA ES narė?", a: "Norvegija", wrong: ["Suomija", "Estija", "Slovėnija"] },
 
   /* ---------- VI. Stipri ir silpna Europa (58–61 psl.) ---------- */
   { id: "r1", section: S6, q: "Periferija – tai:", a: "Pasyvus, atsilikusios ekonomikos regionas", choiceOnly: true, wrong: ["Ekonomiškai išsivystęs valstybės regionas", "Sparčiai kylančios ekonomikos regionas", "Regionas su daugiausiai universitetų"] },
@@ -195,6 +244,15 @@ export const topics: Topic[] = [
   { id: "r16", section: S6, q: "Pagal ką vertinami Europos regionai?", a: "Pagal perkamosios galios BVP 1 gyventojui", accept: ["perkamosios galios bvp", "bvp 1 gyv pagal perkamąją galią", "bvp pagal pg", "perkamosios galios"], wrong: ["Pagal vidutinę gyvenimo trukmę", "Pagal ŽSRI", "Pagal gyventojų skaičių"] },
   { id: "r17", section: S6, q: "Kokie veiksniai lėmė stiprių Europos regionų plėtrą?", a: "Pramonės augimas XIX a., iškasenos, darbo jėga, rinka, keliai, mokslo potencialas, dideli miestai", choiceOnly: true, wrong: ["Sausros, kalnai ir salos", "Kolonijinė praeitis ir diktatūros", "Emigracija ir gyventojų senėjimas"] },
   { id: "r18", section: S6, q: "Kokie du veiksniai pastaruoju metu stabdė regioninę plėtrą Europoje?", a: "COVID-19 pandemija ir Rusijos–Ukrainos karas", accept: ["covid+karas", "pandemija+karas", "covid+ukrain"], wrong: ["Breksitas ir euro įvedimas", "Geležinės uždangos griūtis ir ES plėtra", "Sausros ir potvyniai"] },
+  /* iš kontrolinio pavyzdžių */
+  { id: "r19", section: S6, q: "Kaip dėl savo funkcijų ir svarbos dažnai vadinami ekonomiškai aktyvūs Europos regionai?", a: "Žinių ekonomikos branduoliai", accept: ["žinių ekonomikos branduolys", "ziniu ekonomikos branduolys", "branduolys", "branduoliai"], wrong: ["Geltonasis bananas", "Mėlynasis bananas", "Saulės juosta"] },
+  { id: "r20", section: S6, q: "Ką vaizduoja juosta, vadinama mėlynuoju bananu, besidriekianti nuo Anglijos iki Italijos?", a: "Europos regionus, kuriuose BVP yra didžiausias", choiceOnly: true,
+    wrong: ["Regionus, kuriuose pramonės perversmas prasidėjo anksčiausiai", "Regionus, kur didžiausia dirbančių pramonėje dalis", "Regionus, kur intensyvi prekyba ir kaupiasi pramoninis kapitalas"], note: "1989 m. prancūzų geografai; Europos „ekonomikos stuburas“ – didžiausio gyventojų tankio, miestų ir BVP zona." },
+  { id: "r21", section: S6, q: "Kuri valstybė NEPATENKA į mėlynojo banano teritoriją?", a: "Airija", wrong: ["Nyderlandai", "Belgija", "Liuksemburgas"], note: "Mėlynasis bananas: Š. Anglija – Beneliuksas – Vakarų Vokietija – Šveicarija – Š. Italija." },
+  { id: "r22", section: S6, q: "Kuri valstybė NEPATENKA į geltonojo banano teritoriją?", a: "Italija", wrong: ["Nyderlandai", "Belgija", "Vokietija"], note: "Geltonasis bananas: nuo Paryžiaus iki Berlyno – Prancūzija, Belgija, Nyderlandai, Vokietija." },
+  { id: "r23", section: S6, q: "Paaiškink sąvoką „mėlynasis bananas“", a: "Ekonomiškai aktyviausių Europos regionų juosta nuo Šiaurės Anglijos iki Šiaurės Italijos", choiceOnly: true, wrong: ["Aktyvių regionų juosta nuo Paryžiaus iki Berlyno", "Viduržemio jūros pakrančių regionai", "Pietų Baltijos pakrančių ekonominė zona"] },
+  { id: "r24", section: S6, q: "Paaiškink sąvoką „geltonasis bananas“", a: "Aktyvių regionų juosta nuo Paryžiaus iki Berlyno", choiceOnly: true, wrong: ["Juosta nuo Šiaurės Anglijos iki Šiaurės Italijos", "Viduržemio jūros pakrančių regionai", "Pietų Baltijos pakrančių ekonominė zona"] },
+  { id: "r25", section: S6, q: "Kuriais metais prancūzų geografai sukūrė mėlynojo banano modelį?", a: "1989", accept: ["1989 m"], wrong: ["1957", "1973", "2004"], note: "Tais pačiais metais griuvo geležinė uždanga." },
 
   /* ---------- VII. Kas trukdo šalims vystytis (62–63 psl.) ---------- */
   { id: "k1", section: S7, q: "Kokios 4 kliūtys trukdo valstybėms vystytis?", a: "Istorinės, gamtinės, socialinės ir politinės, ekonominės", accept: ["istorinės+gamtinės+ekonominės", "istorines+gamtines+ekonomines"], wrong: ["Kalbinės, religinės, kultūrinės, sportinės", "Klimato, reljefo, vandens, dirvožemio", "Vidaus, užsienio, karinės, švietimo"] },
@@ -233,7 +291,43 @@ export const topics: Topic[] = [
   kliutis("k34", "Vandens išteklių stokojančios teritorijos", "Gamtinės kliūtys"),
   kliutis("k35", "Vyraujantis naudingųjų iškasenų eksportas", "Ekonominės kliūtys", "Parduoda žaliavas, perka brangią pramonės produkciją."),
   kliutis("k36", "Žaliavų ir produkcijos patekimo į kitų šalių rinką apribojimai (muitai)", "Ekonominės kliūtys", "Stipriosios valstybės uždeda muitus."),
+  /* iš kontrolinio pavyzdžių */
+  kliutis("k37", "Žemės ūkio žaliavų eksportas", "Ekonominės kliūtys", "Žaliavų kainos svyruoja, o pramonės produkciją tenka pirkti brangiai."),
+  kliutis("k38", "Gyventojų tautinė, religinė, finansinė diskriminacija", "Socialinės ir politinės kliūtys"),
+  { id: "k39", section: S7, q: "Kaip vadinamas giminių ir artimųjų įdarbinimas valstybės sektoriuje?", a: "Nepotizmas", accept: ["nepotizmu"], wrong: ["Absoliutizmas", "Metropolija", "Kolonija"] },
+
+  /* ---------- Šalių pavyzdžiai: Kongo DR ir Bangladešas ---------- */
+  { id: "c1", section: S8, q: "Kongo Demokratinės Respublikos sostinė", a: "Kinšasa", accept: ["kinshasa"], wrong: ["Daka", "Bogota", "Seulas"] },
+  { id: "c2", section: S8, q: "Bangladešo sostinė", a: "Daka", accept: ["dhaka"], wrong: ["Kinšasa", "Kolkata", "Seulas"] },
+  { id: "c3", section: S8, q: "Kolumbijos sostinė", a: "Bogota", accept: ["bogotà", "bogota"], wrong: ["Kinšasa", "Seulas", "Kolkata"] },
+  { id: "c4", section: S8, q: "Kurios valstybės sostinė yra Seulas?", a: "Pietų Korėja", accept: ["pietu koreja", "korėja", "koreja"], wrong: ["Kolumbija", "Bangladešas", "Kongo DR"] },
+  { id: "c5", section: S8, q: "Kuriame mieste yra Kolkata: Indijoje, Bangladeše, Pakistane ar Kongo DR?", a: "Indijoje", accept: ["indija"], wrong: ["Bangladeše", "Pakistane", "Kongo DR"], note: "Kolkata – Indijos miestas prie Bangladešo sienos, ne sostinė." },
+  { id: "c6", section: S8, q: "Kuri pramonės šaka reikšminga Bangladešui?", a: "Tekstilės", accept: ["tekstile", "tekstilė", "drabužių", "drabuziu", "tekstiles pramone"], wrong: ["Aukštųjų technologijų", "Mašinų", "Chemijos"], note: "Bangladešas – vienas didžiausių drabužių eksportuotojų pasaulyje (pigi darbo jėga)." },
+  { id: "c7", section: S8, q: "Kokia gamtinė kliūtis būdinga Bangladešui?", a: "Potvyniai ir musonų liūtys (Gango–Brahmaputros delta, ciklonai)", choiceOnly: true, wrong: ["Sausros ir dykumos", "Aukštikalnės ir kalnų perėjos", "Šaltas klimatas ir įšalas"] },
+  { id: "c8", section: S8, q: "Kurios metropolijos kolonija buvo Bangladešas (kaip Britų Indijos dalis)?", a: "Didžiosios Britanijos", accept: ["britanija", "britanijos", "jk", "anglija", "anglijos", "jungtinė karalystė", "jungtine karalyste", "didžioji britanija", "didzioji britanija"], wrong: ["Prancūzijos", "Belgijos", "Portugalijos"] },
+  { id: "c9", section: S8, q: "Kuriais metais Bangladešas tapo nepriklausomas (atsiskyrė nuo Pakistano)?", a: "1971", accept: ["1971 m"], wrong: ["1947", "1960", "1991"], note: "1947 m. Britų Indija padalyta į Indiją ir Pakistaną; Rytų Pakistanas 1971 m. tapo Bangladešu." },
+  { id: "c10", section: S8, q: "Kurios metropolijos kolonija buvo Kongo DR?", a: "Belgijos", accept: ["belgija"], wrong: ["Prancūzijos", "Didžiosios Britanijos", "Portugalijos"], note: "Belgijos Kongas, nepriklausomybė – 1960 m." },
+  { id: "c11", section: S8, q: "Kuriais metais Kongo DR tapo nepriklausoma?", a: "1960", accept: ["1960 m"], wrong: ["1947", "1971", "1991"] },
+  { id: "c12", section: S8, q: "Kokiais gamtos turtais garsi Kongo DR?", a: "Iškasenomis: varis, kobaltas, koltanas, deimantai", choiceOnly: true, wrong: ["Nafta ir gamtinėmis dujomis", "Anglimi ir geležies rūda", "Derlingu dirvožemiu ir kviečiais"], note: "Turtinga iškasenų, bet skurdi – „išteklių prakeiksmas“." },
+  { id: "c13", section: S8, q: "Kokios kliūtys trukdo Kongo DR vystytis?", a: "Kolonijinė praeitis, etniniai konfliktai ir karai, korupcija, priklausomybė nuo iškasenų eksporto", choiceOnly: true, wrong: ["Šaltas klimatas ir atoki sala", "Per mažas gyventojų skaičius", "Per didelė ES priklausomybė"] },
+  { id: "c14", section: S8, q: "Kuriai ŽSRI grupei priklauso Kongo DR?", a: "Besivystančios (žemas ŽSRI)", accept: ["besivystančios", "besivystancios", "besivystanti", "žemas", "zemas", "silpna"], wrong: ["Išsivysčiusios (aukštas ŽSRI)", "Pažangios (vidutinis ŽSRI)", "Ekonomiškai stiprios"] },
+  { id: "c15", section: S8, q: "Kodėl Bangladeše labai didelis gyventojų tankis?", a: "Maža teritorija derlingoje Gango–Brahmaputros deltoje ir apie 170 mln. gyventojų", choiceOnly: true, wrong: ["Didelė teritorija ir mažai gyventojų", "Kalnuota teritorija", "Didelė imigracija iš Europos"] },
+  { id: "c16", section: S8, q: "Kiek maždaug kartų Bangladešo gyventojų (~170 mln.) daugiau nei Lietuvos (~2,9 mln.)?", a: "Apie 60 kartų", accept: ["60", "apie 60", "~60", "58", "59"], wrong: ["Apie 6 kartus", "Apie 600 kartų", "Apie 20 kartų"] },
+  { id: "c17", section: S8, q: "Kuriame žemyne yra Kongo DR, o kuriame – Bangladešas?", a: "Kongo DR – Afrikoje, Bangladešas – Azijoje", accept: ["afrika+azija"], wrong: ["Abi Afrikoje", "Abi Azijoje", "Kongo DR – Azijoje, Bangladešas – Afrikoje"] },
+
+  /* ---------- Europos ribos ---------- */
+  { id: "b1", section: S9, q: "Kokiais kalnais rytuose vedama Europos ir Azijos riba?", a: "Uralo kalnais", accept: ["uralo", "uralas", "uralo kalnai", "uralu"], wrong: ["Alpėmis", "Karpatais", "Pirėnais"] },
+  { id: "b2", section: S9, q: "Kokia upe vedama Europos ir Azijos riba (į pietus nuo Uralo kalnų)?", a: "Uralo upe", accept: ["uralo", "uralas", "uralu", "emba"], wrong: ["Volga", "Dunojumi", "Dniepru"] },
+  { id: "b3", section: S9, q: "Kokia ežeru-jūra vedama Europos riba pietryčiuose?", a: "Kaspijos jūra", accept: ["kaspija", "kaspijos"], wrong: ["Baltijos jūra", "Šiaurės jūra", "Raudonąja jūra"] },
+  { id: "b4", section: S9, q: "Kokie kalnai tarp Juodosios ir Kaspijos jūrų, kuriais vedama Europos riba?", a: "Kaukazas", accept: ["kaukazo", "kaukazo kalnai", "kaukazu"], wrong: ["Uralas", "Alpės", "Karpatai"] },
+  { id: "b5", section: S9, q: "Kuria jūra NĖRA vedama Europos žemyno geografinė riba?", a: "Raudonąja", accept: ["raudonoji", "raudonoji jura", "raudonaja"], wrong: ["Juodąja", "Viduržemio", "Marmuro"], note: "Raudonoji jūra skiria Afriką nuo Azijos." },
+  { id: "b6", section: S9, q: "Kokiu sąsiauriu vedama Europos ir Azijos riba (jis skiria Stambulą į dvi dalis)?", a: "Bosforo sąsiauriu", accept: ["bosforo", "bosforas", "bosforu"], wrong: ["Gibraltaro", "Lamanšo", "Beringo"], note: "Bosforas → Marmuro jūra → Dardanelai jungia Juodąją ir Viduržemio jūras." },
+  { id: "b7", section: S9, q: "Koks sąsiauris skiria Europą nuo Afrikos?", a: "Gibraltaro", accept: ["gibraltaras", "gibraltaro sąsiauris", "gibraltaro sasiauris"], wrong: ["Bosforo", "Lamanšo", "Dardanelų"] },
+  { id: "b8", section: S9, q: "Kokia jūra skiria Europą nuo Afrikos?", a: "Viduržemio", accept: ["vidurzemio", "viduržemio jūra"], wrong: ["Juodoji", "Kaspijos", "Raudonoji"] },
+  { id: "b9", section: S9, q: "Išvardink Europos ir Azijos ribos objektus (nuo šiaurės į pietus)", a: "Uralo kalnai, Uralo upė, Kaspijos jūra, Kaukazas, Juodoji jūra, Bosforas, Marmuro jūra, Dardanelai, Viduržemio jūra", choiceOnly: true,
+    wrong: ["Alpės, Dunojus, Baltijos jūra, Šiaurės jūra", "Karpatai, Volga, Azovo jūra, Raudonoji jūra", "Pirėnai, Rona, Ligūrijos jūra, Gibraltaras"] },
+  { id: "b10", section: S9, q: "Koks sąsiauris skiria Didžiąją Britaniją nuo žemyninės Europos?", a: "Lamanšas", accept: ["lamanšo", "lamanso", "lamansas", "la manche"], wrong: ["Gibraltaro", "Bosforo", "Dardanelų"] },
 ];
 
 export const topicById = new Map(topics.map((t) => [t.id, t]));
-export const KD1_SECTIONS = [S1, S2, S3, S4, S5, S6, S7];
+export const KD1_SECTIONS = [S1, S2, S3, S4, S5, S6, S7, S8, S9];
